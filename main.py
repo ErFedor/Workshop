@@ -6,13 +6,56 @@ import sys
 from datetime import datetime
 from PySide6.QtWidgets import QApplication, QWidget, QFileDialog
 from PySide6 import QtCore
+from PySide6.QtCore import Qt
 from db import DB_connecter
 
 from ui.ui_last import Ui_LastForm
 from ui.ui_first import Ui_FirstForm
 from ui.ui_error import Ui_ErrForm
+from ui.ui_order import Ui_OrderForm
 
-DB = DB_connecter()
+DB = DB_connecter('client', 'client')
+
+class TableModel(QtCore.QAbstractTableModel):
+    def __init__(self, data):
+        super(TableModel, self).__init__()
+        self._data = data
+        print(self._data)
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int):
+        header = ['ID_Order', 'Comment', 'Date', 'Cost']
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                return header[section]
+
+    def data(self, index, role):
+        if role == Qt.ItemDataRole.DisplayRole:
+            return self._data[index.row()][index.column()]
+
+    def rowCount(self, index):
+        return len(self._data)
+
+    def columnCount(self, index):
+        return len(self._data[0])
+
+class Order_Win(QWidget):
+    def __init__(self, parent = None):
+        super().__init__(parent, QtCore.Qt.Window)
+        self.ui = Ui_OrderForm()
+        self.ui.setupUi(self)
+        self.ui.OrderBut.clicked.connect(self.order_data)
+        self.error = Error_Win()
+        self.tableView = self.ui.tableView
+        print(type(self.tableView))
+
+
+    def order_data(self):
+        print('ORDER')
+        self.ID_Product = window2.ID_Product
+        self.data = DB.SelectCurrentOrder(self.ID_Product)
+        self.model = TableModel(self.data)
+        self.tableView.setModel(self.model)
+        self.tableView.show()
 
 class Error_Win(QWidget):
     def __init__(self, parent = None):
@@ -37,10 +80,9 @@ class Last_Win(QWidget):
         self.comment = self.ui.com_edit.toPlainText()
 
         # ПРОВЕРКА НА НЕЗАПОЛНЕННОСТЬ ЯЧЕЕК
-        if (self.name and self.surname and self.phone and self.email) != '':
+        if (self.name and self.surname and self.phone) != '':
             client_data = (self.name, self.surname, self.patr, self.phone, self.email)
             self.ID_Client = DB.InsertClient(client_data)
-            # print(self.ID_Client)
             self.close()
             window.close()
         else:
@@ -55,7 +97,6 @@ class Last_Win(QWidget):
         if (self.TypeProduct and self.NameProduct and self.Material and self.ServiceType) != '':
             product_data = (self.TypeProduct, self.NameProduct, self.Material, self.Weight, self.ID_Client, self.ServiceType)
             self.ID_Product = DB.InsertProductType(product_data)
-            # print(self.ID_Product)
         else:
             self.error.show()
 
@@ -68,9 +109,9 @@ class Last_Win(QWidget):
             order_data = (self.ID_Product, self.ID_Worker, self.comment, self.date, self.Cost)
             self.ID_Order = DB.InsertOrder(order_data)
             print(self.ID_Order)
+            window3.show()
         else:
             self.error.show()
-
 
         # КОНЕЦ ПРОГИ
 
@@ -79,14 +120,11 @@ class First_Win(QWidget):
         QWidget.__init__(self, parent)
         self.ui = Ui_FirstForm()
         self.ui.setupUi(self)
-        self.lastwin = None
         self.ui.nextButton.clicked.connect(self.next_win)
         self.error = Error_Win()
 
     def next_win(self):
-        if not self.lastwin:
-            self.lastwin = Last_Win(self)
-        self.lastwin.show()
+        window2.show()
         self.save_data()
 
     def save_data(self):
@@ -95,21 +133,14 @@ class First_Win(QWidget):
         self.Material = self.ui.material_edit.text()
         self.Weight = self.ui.weight_edit.text()
         self.ServiceType = self.ui.checkBox.isChecked()
-
         if self.Weight == '':
             self.Weight = 0
-
-
-        # if (TypeProduct and NameProduct and Material and ServiceType) != '':
-        #     product_data = (TypeProduct, NameProduct, Material, Weight, ID_Client, ServiceType)
-        #     ID_Product = DB.InsertProductType(product_data)
-        #     print(ID_Product)
-        # else:
-        #     self.error.show()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = First_Win()
+    window2 = Last_Win()
+    window3 = Order_Win()
     window.show()
 
     sys.exit(app.exec())
